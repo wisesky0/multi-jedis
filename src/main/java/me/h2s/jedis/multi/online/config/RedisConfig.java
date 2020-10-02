@@ -1,11 +1,15 @@
 package me.h2s.jedis.multi.online.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import me.h2s.jedis.multi.online.config.custom.redis.JedisConnectionConfiguration;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.autoconfigure.data.redis.JedisClientConfigurationBuilderCustomizer;
-import org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration;
 import org.springframework.boot.autoconfigure.data.redis.RedisProperties;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -20,63 +24,49 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import java.net.UnknownHostException;
 
 @Configuration
-@EnableAutoConfiguration(exclude = RedisAutoConfiguration.class)
+@ConditionalOnProperty(prefix="spring.redis", name = "host")
 public class RedisConfig {
+    Logger log = LoggerFactory.getLogger(RedisConfig.class);
 
     @Bean
-    @ConfigurationProperties(prefix = "spring.redis-local")
-    public RedisProperties redisLocalProperties() {
+    @ConfigurationProperties("spring.redis")
+    RedisProperties redisProperties() {
         return new RedisProperties();
     }
 
     @Bean
-    public JedisConnectionConfiguration jedisLocalConnectionConfiguration(@Qualifier("redisLocalProperties") RedisProperties redisLocalProperties, ObjectProvider<RedisSentinelConfiguration> redisSentinelConfigurations, ObjectProvider<RedisClusterConfiguration> clusterConfigurationctProvider) {
-        return new JedisConnectionConfiguration(redisLocalProperties, redisSentinelConfigurations, clusterConfigurationctProvider);
+    public JedisConnectionConfiguration jedisConnectionConfiguration(@Qualifier("redisProperties") RedisProperties redisProperties, ObjectProvider<RedisSentinelConfiguration> redisSentinelConfigurations, ObjectProvider<RedisClusterConfiguration> clusterConfigurationctProvider) throws JsonProcessingException {
+        log.debug("redis-configuration : {}", getJsonString(redisProperties));
+        return new JedisConnectionConfiguration(redisProperties, redisSentinelConfigurations, clusterConfigurationctProvider);
+    }
+
+    private String getJsonString(RedisProperties redisProperties) {
+        ObjectMapper objectMapper = new ObjectMapper();
+        try {
+            return objectMapper.writeValueAsString(redisProperties);
+        } catch (Exception e) {
+            return redisProperties.toString();
+        }
     }
 
     @Bean
-    public JedisConnectionFactory redisLocalConnectionFactory(@Qualifier("jedisLocalConnectionConfiguration") JedisConnectionConfiguration jedisLocalConnectionConfiguration, ObjectProvider<JedisClientConfigurationBuilderCustomizer> builderCustomizers) throws UnknownHostException {
-        return jedisLocalConnectionConfiguration.redisConnectionFactory(builderCustomizers);
+    public JedisConnectionFactory redisConnectionFactory(@Qualifier("jedisConnectionConfiguration") JedisConnectionConfiguration jedisConnectionConfiguration, ObjectProvider<JedisClientConfigurationBuilderCustomizer> builderCustomizers) throws UnknownHostException {
+        return jedisConnectionConfiguration.redisConnectionFactory(builderCustomizers);
     }
 
     @Bean
-    public RedisTemplate<Object, Object> redisLocalTemplate(@Qualifier("redisLocalConnectionFactory") RedisConnectionFactory redisConnectionFactory) throws UnknownHostException {
-        RedisTemplate<Object, Object> template = new RedisTemplate();
+    @ConditionalOnMissingBean(name = "redisTemplate")
+    public RedisTemplate<Object, Object> redisTemplate(RedisConnectionFactory redisConnectionFactory)
+            throws UnknownHostException {
+        RedisTemplate<Object, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(redisConnectionFactory);
         return template;
     }
 
     @Bean
-    public StringRedisTemplate stringRedisLocalTemplate(@Qualifier("redisLocalConnectionFactory") RedisConnectionFactory redisConnectionFactory) throws UnknownHostException {
-        StringRedisTemplate template = new StringRedisTemplate();
-        template.setConnectionFactory(redisConnectionFactory);
-        return template;
-    }
-
-    @Bean
-    @ConfigurationProperties(prefix = "spring.redis")
-    public RedisProperties redisGlobalProperties() {
-        return new RedisProperties();
-    }
-
-    @Bean
-    public JedisConnectionConfiguration jedisGlobalConnectionConfiguration(@Qualifier("redisGlobalProperties") RedisProperties redisGlobalProperties, ObjectProvider<RedisSentinelConfiguration> redisSentinelConfigurations, ObjectProvider<RedisClusterConfiguration> clusterConfigurationctProvider) {
-        return new JedisConnectionConfiguration(redisGlobalProperties, redisSentinelConfigurations, clusterConfigurationctProvider);
-    }
-    @Bean (name = {"redisConnectionFactory", "redisGlobalConnectionFactory"})
-    public JedisConnectionFactory redisGlobalConnectionFactory(@Qualifier("jedisGlobalConnectionConfiguration") JedisConnectionConfiguration jedisLocalConnectionConfiguration, ObjectProvider<JedisClientConfigurationBuilderCustomizer> builderCustomizers) throws UnknownHostException {
-        return jedisLocalConnectionConfiguration.redisConnectionFactory(builderCustomizers);
-    }
-
-    @Bean(name = {"redisTemplate", "redisGlobalTemplate"})
-    public RedisTemplate<Object, Object> redisGlobalTemplate(@Qualifier("redisGlobalConnectionFactory") RedisConnectionFactory redisConnectionFactory) throws UnknownHostException {
-        RedisTemplate<Object, Object> template = new RedisTemplate();
-        template.setConnectionFactory(redisConnectionFactory);
-        return template;
-    }
-
-    @Bean(name ={"stringRedisTemplate","stringRedisGlobalTemplate"})
-    public StringRedisTemplate stringRedisGlobalTemplate(@Qualifier("redisGlobalConnectionFactory") RedisConnectionFactory redisConnectionFactory) throws UnknownHostException {
+    @ConditionalOnMissingBean
+    public StringRedisTemplate stringRedisTemplate(RedisConnectionFactory redisConnectionFactory)
+            throws UnknownHostException {
         StringRedisTemplate template = new StringRedisTemplate();
         template.setConnectionFactory(redisConnectionFactory);
         return template;

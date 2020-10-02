@@ -16,7 +16,8 @@ import redis.clients.jedis.JedisPoolConfig;
 import java.net.UnknownHostException;
 import java.time.Duration;
 
-public class JedisConnectionConfiguration extends RedisConnectionConfiguration {
+public class JedisConnectionConfiguration<T extends JedisConnectionFactory> extends RedisConnectionConfiguration {
+    private Class<T> clazz;
 
     public JedisConnectionConfiguration(RedisProperties properties, ObjectProvider<RedisSentinelConfiguration> sentinelConfiguration, ObjectProvider<RedisClusterConfiguration> clusterConfiguration) {
         super(properties, sentinelConfiguration, clusterConfiguration);
