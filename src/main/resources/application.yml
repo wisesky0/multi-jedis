@@ -1,0 +1,24 @@
+debug: false
+
+management:
+  health.diskspace.enabled: false
+  endpoints.web.exposure.include: "*"
+
+spring:
+  profiles:
+    active: local
+  redis:
+    host: localhost
+    port: 6379
+  redis-local:
+    host: localhost
+    port: 6378
+  h2.console.enabled: true
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password: password
+  jpa.database-platform: org.hibernate.dialect.H2Dialect
+
+
